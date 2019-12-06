@@ -1,0 +1,31 @@
+<div class="cor-confirm-dialog-element">
+  <div class="modal fade co-dialog">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" ng-show="!$ctrl.working"
+                  data-dismiss="modal" aria-hidden="true">&times;</button>
+          <h4 class="modal-title">{{ $ctrl.dialogTitle }}</h4>
+        </div>
+        <div class="modal-body" ng-show="$ctrl.working">
+          <div class="cor-loader" ng-if="!$ctrl.dialogContext.progress"></div>
+          <div class="progress-message" ng-if="$ctrl.dialogContext.progressMessage">
+            {{ $ctrl.dialogContext.progressMessage }}
+          </div>
+          <div class="cor-progress-bar" ng-if="$ctrl.dialogContext.progress" progress="$ctrl.dialogContext.progress">
+          </div>
+        </div>
+        <div class="modal-body" ng-show="!$ctrl.working">
+          <span ng-transclude />
+        </div>
+        <div class="modal-footer" ng-show="!$ctrl.working">
+          <button type="button" class="btn btn-primary" ng-class="$ctrl.dialogButtonClass || 'btn-primary'"
+                  ng-click="$ctrl.performAction()" ng-disabled="$ctrl.dialogForm && $ctrl.dialogForm.$invalid">
+            {{ $ctrl.dialogActionTitle }}
+          </button>
+          <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+        </div>
+      </div><!-- /.modal-content -->
+    </div><!-- /.modal-dialog -->
+  </div><!-- /.modal -->
+</div>
