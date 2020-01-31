@@ -1840,6 +1840,47 @@ class RepoMirrorConfig(BaseModel):
     root_rule = ForeignKeyField(RepoMirrorRule)
 
 
+@unique
+class IndexStatus(IntEnum):
+    """
+    Possible statuses of manifest security scan progress.
+    """
+
+    FAILED = -1
+    UNSUPPORTED = 0
+    TIMED_OUT = 1
+    WAITING = 2
+    IN_PROGRESS = 3
+    COMPLETED = 4
+
+
+@unique
+class IndexerVersion(IntEnum):
+    """
+    Possible versions of security indexers.
+    """
+
+    V2 = 0
+    V4 = 1
+
+
+class ManifestSecurityStatus(BaseModel):
+    """
+    Represents the security scan status for a particular container image manifest. 
+
+    Intended to replace the `security_indexed` and `security_indexed_engine` fields 
+    on the `Image` model.
+    """
+
+    manifest = ForeignKeyField(Manifest)
+    index_status = ClientEnumField(IndexStatus)
+    error_json = JSONField(default={})
+    last_indexed = DateTimeField(default=datetime.utcnow)
+    indexer_hash = CharField(max_length=128)
+    indexer_version = ClientEnumField(IndexerVersion)
+    metadata_json = JSONField(default={})
+
+
 appr_classes = set(
     [
         ApprTag,

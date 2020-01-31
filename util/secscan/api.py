@@ -126,6 +126,7 @@ class SecurityScannerAPI(object):
         return getattr(self.state, name, None)
 
 
+# TODO(alecmerdler): Need new interface for Clair v4 
 @add_metaclass(ABCMeta)
 class SecurityScannerAPIInterface(object):
     """ Helper class for talking to the Security Scan service (usually Clair). """

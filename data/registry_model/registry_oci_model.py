@@ -567,6 +567,25 @@ class OCIModel(SharedModel, RegistryDataInterface):
         image.security_indexed_engine = IMAGE_NOT_SCANNED_ENGINE_VERSION
         image.save()
 
+    def security_status_for(self, manifest_or_legacy_image):
+        """
+        Returns the `ManifestSecurityStatus` for a given `Manifest` or `Image`.
+        """
+        manifest = None
+
+        if isinstance(manifest_or_legacy_image, LegacyImage):
+            manifest = oci.shared.get_manifest_for_legacy_image(manifest_or_legacy_image._db_id)
+            if manifest is None:
+                # FIXME(alecmerdler): Should this return something else?
+                return None
+        
+        assert manifest
+
+        try:
+            return database.ManifestSecurityStatus.get(manifest=manifest)
+        except database.ManifestSecurityStatus.DoesNotExist:
+            return None
+
     def backfill_manifest_for_tag(self, tag):
         """ Backfills a manifest for the V1 tag specified.
         If a manifest already exists for the tag, returns that manifest.

@@ -236,6 +236,12 @@ class RegistryDataInterface(object):
     """
 
     @abstractmethod
+    def security_status_for(self, manifest_or_legacy_image):
+        """
+        Returns the `ManifestSecurityStatus` for a given `Manifest` or `Image`.
+        """
+
+    @abstractmethod
     def backfill_manifest_for_tag(self, tag):
         """ Backfills a manifest for the V1 tag specified.
         If a manifest already exists for the tag, returns that manifest.
