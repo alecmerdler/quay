@@ -1313,6 +1313,7 @@ WHITELISTED_EMPTY_MODELS = [
     "NamespaceGeoRestriction",
     "RepoMirrorConfig",
     "RepoMirrorRule",
+    "ManifestSecurityStatus",
 ]
 
 
