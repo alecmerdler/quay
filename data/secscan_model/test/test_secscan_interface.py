@@ -8,6 +8,7 @@ from test.fixtures import *
 from app import app, instance_keys, storage
 
 
+# TODO(alecmerdler): Remove this in favor of testing the split model...
 @pytest.fixture(params=[V2SecurityScanner, V4SecurityScanner])
 def secscan_model(request, initialized_db):
     return request.param(app, instance_keys, storage)

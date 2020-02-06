@@ -4,6 +4,7 @@ import itertools
 from collections import namedtuple
 from math import log10
 from peewee import fn, JOIN
+from enum import IntEnum
 
 from data.secscan_model.interface import SecurityScannerInterface
 from data.secscan_model.datatypes import ScanLookupStatus, SecurityInformationLookupResult
@@ -11,6 +12,8 @@ from data.registry_model.datatypes import Manifest as ManifestDataType
 from data.registry_model import registry_model
 from util.migrate.allocator import yield_random_entries
 from util.secscan.validator import V4SecurityConfigValidator
+from util.secscan.v4.api import ClairSecurityScannerAPI
+from util.secscan import PRIORITY_LEVELS
 from util.config import URLSchemeAndHostname
 
 from data.database import (
@@ -29,6 +32,15 @@ logger = logging.getLogger(__name__)
 indexer_state = ""
 
 
+class IndexReportState(IntEnum):
+    """
+    Potential states of the claircore indexer for a given manifest.
+    """
+
+    INDEX_ERROR = -1
+    INDEX_FINISHED = 1
+
+
 class ScanToken(namedtuple("NextScanToken", ["min_id"])):
     """
     ScanToken represents an opaque token that can be passed between runs of the security worker
@@ -45,6 +57,7 @@ class V4SecurityScanner(SecurityScannerInterface):
 
     def __init__(self, app, instance_keys, storage):
         self.app = app
+        self.storage = storage
 
         validator = V4SecurityConfigValidator(
             app.config.get("FEATURE_SECURITY_SCANNER", False),
@@ -54,6 +67,12 @@ class V4SecurityScanner(SecurityScannerInterface):
         if not validator.valid():
             logger.warning("Failed to validate security scanner V4 configuration")
             return
+
+        self._secscan_api = ClairSecurityScannerAPI(
+            endpoint=app.config.get("SECURITY_SCANNER_V4_ENDPOINT"),
+            client=app.config.get("HTTPCLIENT"),
+            storage=storage,
+        )
 
     def load_security_information(self, manifest_or_legacy_image, include_vulnerabilities=False):
         if not isinstance(manifest_or_legacy_image, ManifestDataType):
@@ -68,22 +87,24 @@ class V4SecurityScanner(SecurityScannerInterface):
         if status.index_status == IndexStatus.FAILED:
             return SecurityInformationLookupResult.with_status(ScanLookupStatus.FAILED_TO_INDEX)
 
-        if status.index_status == IndexStatus.UNSUPPORTED:
+        if status.index_status == IndexStatus.MANIFEST_UNSUPPORTED:
             return SecurityInformationLookupResult.with_status(
                 ScanLookupStatus.UNSUPPORTED_FOR_INDEXING
             )
 
-        if status.index_status in [
-            IndexStatus.TIMED_OUT,
-            IndexStatus.WAITING,
-            IndexStatus.IN_PROGRESS,
-        ]:
+        if status.index_status == IndexStatus.IN_PROGRESS:
             return SecurityInformationLookupResult.with_status(ScanLookupStatus.NOT_YET_INDEXED)
 
         assert status.index_status == IndexStatus.COMPLETED
 
-        # TODO(alecmerdler): Fetch data from Clair API
-        return SecurityInformationLookupResult.with_status(ScanLookupStatus.NOT_YET_INDEXED)
+        report = self._secscan_api.vulnerability_report(manifest_or_legacy_image.digest)
+
+        if report is None:
+            return SecurityInformationLookupResult.with_status(ScanLookupStatus.NOT_YET_INDEXED)
+
+        return SecurityInformationLookupResult.for_data(
+            {"Layer": {"Features": features_for(report)}}
+        )
 
     def perform_indexing(self, start_token=None):
         whitelisted_namespaces = self.app.config.get("SECURITY_SCANNER_V4_NAMESPACE_WHITELIST", [])
@@ -149,9 +170,29 @@ class V4SecurityScanner(SecurityScannerInterface):
         )
 
         for candidate, abt, num_remaining in iterator:
-            # TODO(alecmerdler): Call out to Clair v4 to `/index` the manifest
-            logger.info("Clair v4 client not yet implemented, passing for now")
-            pass
+            manifest = ManifestDataType.for_manifest(candidate, None)
+            layers = registry_model.list_manifest_layers(manifest, self.storage, True)
+
+            logger.info(
+                "Indexing %s/%s@%s"
+                % (candidate.repository.namespace_user, candidate.repository.name, manifest.digest)
+            )
+
+            # TODO(alecmerdler): Catch exceptions
+            report = self._secscan_api.index(manifest, layers)
+            mss = ManifestSecurityStatus(
+                manifest=candidate,
+                repository=candidate.repository,
+                error_json=report["err"],
+                index_status=IndexStatus.FAILED
+                if report["state"] == IndexReportState.INDEX_ERROR
+                else IndexStatus.COMPLETED,
+                # TODO(alecmerdler): Check `/state` endpoint on Clair and store it here...
+                indexer_hash=indexer_state,
+                indexer_version=IndexerVersion.V4,
+                metadata_json={},
+            )
+            mss.save()
 
         return ScanToken(max_id + 1)
 
@@ -161,3 +202,40 @@ class V4SecurityScanner(SecurityScannerInterface):
     @property
     def legacy_api_handler(self):
         raise NotImplementedError("Unsupported for this security scanner version")
+
+
+def features_for(report):
+    """
+    Transforms a Clair v4 `VulnerabilityReport` dict into the standard shape of a 
+    Quay Security scanner response.
+    """
+
+    features = []
+    for pkg_id, vuln_ids in report["package_vulnerabilities"].items():
+        pkg = report["packages"][pkg_id]
+        pkg_vulns = [report["vulnerabilities"][vuln_id] for vuln_id in vuln_ids]
+        pkg_env = report["environments"][pkg_id][0]
+
+        feature = {
+            "Name": pkg["name"],
+            "VersionFormat": "",
+            "NamespaceName": "",
+            "AddedBy": pkg_env["introduced_in"],
+            "Version": pkg["version"],
+            "Vulnerabilities": [
+                {
+                    "Severity": vuln["normalized_severity"]
+                    if vuln["normalized_severity"]
+                    else PRIORITY_LEVELS["Unknown"]["value"],
+                    "NamespaceName": "",
+                    "Link": vuln["links"],
+                    "FixedBy": vuln["fixed_in_version"] if vuln["fixed_in_version"] != "0" else "",
+                    "Description": vuln["description"],
+                    "Name": vuln["name"],
+                }
+                for vuln in pkg_vulns
+            ],
+        }
+        features.append(feature)
+
+    return features
