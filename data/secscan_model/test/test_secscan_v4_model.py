@@ -1,9 +1,17 @@
 from peewee import fn
 import mock
 
-from data.secscan_model.secscan_v4_model import V4SecurityScanner
+from data.secscan_model.secscan_v4_model import V4SecurityScanner, IndexReportState
 from data.secscan_model.datatypes import ScanLookupStatus
-from data.database import Manifest, Repository, ManifestSecurityStatus, IndexStatus, IndexerVersion
+from data.database import (
+    Manifest,
+    Repository,
+    ManifestSecurityStatus,
+    IndexStatus,
+    IndexerVersion,
+    User,
+)
+from data.registry_model.datatypes import Manifest as ManifestDataType
 from data.registry_model import registry_model
 
 from test.fixtures import *
@@ -42,19 +50,41 @@ def test_load_security_information_failed_to_index(initialized_db):
 
 def test_perform_indexing_whitelist(initialized_db):
     app.config["SECURITY_SCANNER_V4_NAMESPACE_WHITELIST"] = ["devtable"]
+    expected_manifests = (
+        Manifest.select().join(Repository).join(User).where(User.username == "devtable")
+    )
+
     secscan = V4SecurityScanner(app, instance_keys, storage)
-    # FIXME(alecmerdler): Mock `secscan._secscan_api.index()`
-    secscan._secscan_api.index = mock.MagicMock()
+    secscan._secscan_api = mock.Mock()
+    secscan._secscan_api.state.return_value = "abc"
+    secscan._secscan_api.index.return_value = (
+        {"err": None, "state": IndexReportState.INDEX_FINISHED},
+        "abc",
+    )
 
     next_token = secscan.perform_indexing()
 
+    assert secscan._secscan_api.index.call_count == expected_manifests.count()
+    for mss in ManifestSecurityStatus.select():
+        assert mss.repository.namespace_user.username == "devtable"
+    assert ManifestSecurityStatus.select().count() == expected_manifests.count()
     assert (
         Manifest.get_by_id(next_token.min_id - 1).repository.namespace_user.username == "devtable"
     )
 
 
 def test_perform_indexing_no_whitelist(initialized_db):
+    app.config["SECURITY_SCANNER_V4_NAMESPACE_WHITELIST"] = []
     secscan = V4SecurityScanner(app, instance_keys, storage)
+    secscan._secscan_api = mock.Mock()
+    secscan._secscan_api.state.return_value = "abc"
+    secscan._secscan_api.index.return_value = (
+        {"err": None, "state": IndexReportState.INDEX_FINISHED},
+        "abc",
+    )
+
     next_token = secscan.perform_indexing()
 
+    assert secscan._secscan_api.index.call_count == Manifest.select().count()
+    assert ManifestSecurityStatus.select().count() == Manifest.select().count()
     assert next_token.min_id == Manifest.select(fn.Max(Manifest.id)).scalar() + 1

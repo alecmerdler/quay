@@ -28,9 +28,6 @@ from data.database import (
 
 logger = logging.getLogger(__name__)
 
-# TODO(alecmerdler): Retrieve `/state` from security scanner API
-indexer_state = ""
-
 
 class IndexReportState(IntEnum):
     """
@@ -108,6 +105,7 @@ class V4SecurityScanner(SecurityScannerInterface):
 
     def perform_indexing(self, start_token=None):
         whitelisted_namespaces = self.app.config.get("SECURITY_SCANNER_V4_NAMESPACE_WHITELIST", [])
+        indexer_state = self._secscan_api.state()
 
         def eligible_manifests(base_query):
             if len(whitelisted_namespaces) == 0:
@@ -139,20 +137,39 @@ class V4SecurityScanner(SecurityScannerInterface):
             )
 
         def index_error_query():
-            return (
+            # return (
+            #     eligible_manifests(Manifest.select())
+            #     .switch(Manifest)
+            #     .join(ManifestSecurityStatus)
+            #     .where(ManifestSecurityStatus.index_status == IndexStatus.FAILED)
+            # )
+            query = (
                 eligible_manifests(Manifest.select())
                 .switch(Manifest)
                 .join(ManifestSecurityStatus)
                 .where(ManifestSecurityStatus.index_status == IndexStatus.FAILED)
             )
+            if query.count() > 0:
+                raise Exception(query.count())
+            return query
 
         def needs_reindexing_query(indexer_hash):
-            return (
+            # return (
+            #     eligible_manifests(Manifest.select())
+            #     .switch(Manifest)
+            #     .join(ManifestSecurityStatus)
+            #     .where(ManifestSecurityStatus.indexer_hash != indexer_hash)
+            # )
+            query = (
                 eligible_manifests(Manifest.select())
                 .switch(Manifest)
                 .join(ManifestSecurityStatus)
                 .where(ManifestSecurityStatus.indexer_hash != indexer_hash)
             )
+            # if query.count() > 0:
+            #     raise Exception(ManifestSecurityStatus.select().count())
+            #     raise Exception(query.count())
+            return query
 
         # 4^log10(total) gives us a scalable batch size into the billions.
         batch_size = int(4 ** log10(max(10, max_id - min_id)))
@@ -179,7 +196,14 @@ class V4SecurityScanner(SecurityScannerInterface):
             )
 
             # TODO(alecmerdler): Catch exceptions
-            report = self._secscan_api.index(manifest, layers)
+            (report, state) = self._secscan_api.index(manifest, layers)
+
+            ManifestSecurityStatus.delete().where(
+                ManifestSecurityStatus.manifest
+                == candidate & ManifestSecurityStatus.repository
+                == candidate.repository
+            )
+
             mss = ManifestSecurityStatus(
                 manifest=candidate,
                 repository=candidate.repository,
@@ -187,8 +211,7 @@ class V4SecurityScanner(SecurityScannerInterface):
                 index_status=IndexStatus.FAILED
                 if report["state"] == IndexReportState.INDEX_ERROR
                 else IndexStatus.COMPLETED,
-                # TODO(alecmerdler): Check `/state` endpoint on Clair and store it here...
-                indexer_hash=indexer_state,
+                indexer_hash=state,
                 indexer_version=IndexerVersion.V4,
                 metadata_json={},
             )

@@ -27,15 +27,17 @@ class SecurityScannerModelProxy(object):
         )
         logger.info("===============================")
 
+        return self
+
     def __getattr__(self, attr):
         if attr == SecurityScannerInterface.perform_indexing.__name__:
 
-            def perform_indexing(next_token):
+            def perform_indexing(next_token=None):
                 if next_token is None:
                     return SplitScanToken("v4", self._v4_model.perform_indexing())
 
                 if next_token.version == "v4" and next_token.token is not None:
-                    return SplitScanToken("v4", self._model.perform_indexing(next_token.token))
+                    return SplitScanToken("v4", self._v4_model.perform_indexing(next_token.token))
 
                 if next_token.version == "v4" and next_token.token is None:
                     return SplitScanToken("v2", self._model.perform_indexing(None))

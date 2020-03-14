@@ -43,6 +43,7 @@ class SecurityScannerAPIInterface(object):
         """
         By submitting a Manifest object to this endpoint Clair will fetch the layers, 
         scan each layer's contents, and provide an index of discovered packages, repository and distribution information.
+        Returns a tuple of the `IndexReport` and the indexer state.
         """
         pass
 
@@ -118,7 +119,7 @@ class ClairSecurityScannerAPI(SecurityScannerAPIInterface):
         except Non200ResponseException as ex:
             raise APIRequestFailure(ex.message)
 
-        return resp.json()
+        return (resp.json(), resp.headers["etag"])
 
     def index_report(self, manifest_hash):
         try:
