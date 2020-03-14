@@ -11,6 +11,7 @@ angular.module('quay').directive('repoPanelTags', function () {
     scope: {
       'repository': '=repository',
       'repositoryTags': '=repositoryTags',
+      'containers': '=containers',
       'selectedTags': '=selectedTags',
       'historyFilter': '=historyFilter',
       'imagesResource': '=imagesResource',

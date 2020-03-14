@@ -148,6 +148,20 @@
          image-loader="imageLoader" style="margin-top: 20px">
       The following images and any other images not referenced by a tag will be <span ng-if="repository.tag_expiration_s == 0">deleted</span><span ng-if="repository.tag_expiration_s != 0">unavailable and deleted in {{ getFormattedTimespan(repository.tag_expiration_s) }}</span>:
     </div>
+
+    <!-- TODO(alecmerdler): Show information about containers running this tag... -->
+    <tag-specific-containers containers="containers" loading="false" style="margin-top: 20px; border-top: 1px solid #efefef;"></tag-specific-containers>
+
+    <!-- <div style="margin-top: 10px; border-top: 1px solid #efefef; padding-top: 10px;">
+        The following containers are running with this tag:
+        <div style="display: flex; flex-direction: column; padding: 10px;">
+          <div ng-repeat="container in containers" style="display: flex;">
+            <div>On cluster <strong>{{ container.cluster_id }}</strong>&nbsp;</div>
+            <div>in pod <code>{{ container.namespace }}</code>/<code>{{ container.pod_name }}</code>&nbsp;</div>
+            <div>running container <code>{{ container.name }}</code></div>
+          </div>
+        </div>
+    </div> -->
   </div>
 
   <!-- Restore Tag Confirm -->

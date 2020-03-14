@@ -44,6 +44,7 @@ import { ManifestLinkComponent } from './directives/ui/manifest-link/manifest-li
 import { ManifestSecurityView } from './directives/ui/manifest-security-view/manifest-security-view.component';
 import { MarkdownModule } from './directives/ui/markdown/markdown.module';
 import { RepoStateComponent } from './directives/ui/repo-state/repo-state.component';
+import { TagSpecificContainers } from './directives/ui/tag-specific-containers/tag-specific-containers.component';
 import * as Clipboard from 'clipboard';
 
 
@@ -91,6 +92,7 @@ import * as Clipboard from 'clipboard';
     ManifestLinkComponent,
     ManifestSecurityView,
     RepoStateComponent,
+    TagSpecificContainers,
   ],
   providers: [
     ViewArrayImpl,

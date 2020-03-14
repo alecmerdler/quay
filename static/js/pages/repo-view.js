@@ -33,6 +33,7 @@
       'builds': null,
       'historyFilter': '',
       'repositoryTags': null,
+      'containers': [],
       'tagsLoading': true
     };
 
@@ -76,6 +77,7 @@
         }, {});
 
         $.extend($scope.repositoryTags, newTags);
+        $.extend($scope.viewScope.containers, resp.containers);
 
         if (resp.has_additional) {
           loadPaginatedRepositoryTags(page + 1);

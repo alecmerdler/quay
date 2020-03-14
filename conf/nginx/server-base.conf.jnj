@@ -82,6 +82,11 @@ location /secscan/_internal_ping {
     proxy_pass http://secscan_app_server;
 }
 
+# TODO(alecmerdler): Proxy to Kubernetes API endpoint by replacing the URL (the same way we do for `/_storage_proxy`)
+location /kubernetes/api/ {
+    proxy_pass 
+}
+
 {% if signing_enabled %}
 location ~ ^/v2/(.+)/_trust/tuf/(.*)$ {
   set $upstream_tuf {{ tuf_server }};

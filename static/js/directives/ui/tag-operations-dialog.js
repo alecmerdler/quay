@@ -12,6 +12,7 @@ angular.module('quay').directive('tagOperationsDialog', function () {
     scope: {
       'repository': '=repository',
       'repositoryTags': '=repositoryTags',
+      'containers': '=containers',
       'actionHandler': '=actionHandler',
       'imageLoader': '=imageLoader',
       'tagChanged': '&tagChanged',

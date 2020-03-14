@@ -4,7 +4,7 @@ Manage the tags of a repository.
 from datetime import datetime
 from flask import request, abort
 
-from app import storage, docker_v2_signing_key
+from app import storage, docker_v2_signing_key, app
 from auth.auth_context import get_authenticated_user
 from data.registry_model import registry_model
 from endpoints.api import (
@@ -26,6 +26,7 @@ from endpoints.api.image import image_dict
 from endpoints.exception import NotFound, InvalidRequest
 from util.names import TAG_ERROR, TAG_REGEX
 from util.parsing import truthy_bool
+from util.k8s.pods import live_tags
 
 
 def _tag_dict(tag):
@@ -80,6 +81,10 @@ class ListRepositoryTags(RepositoryParamResource):
     )
     @query_param("page", "Page index for the results. Default 1.", type=int, default=1)
     @query_param("onlyActiveTags", "Filter to only active tags.", type=truthy_bool, default=False)
+    # FIXME(alecmerdler): This will slow down this API response
+    @query_param(
+        "livePods", "Include pods that are consuming this tag.", type=truthy_bool, default=True
+    )
     @nickname("listRepoTags")
     def get(self, namespace, repository, parsed_args):
         specific_tag = parsed_args.get("specificTag") or None
@@ -98,10 +103,39 @@ class ListRepositoryTags(RepositoryParamResource):
             specific_tag_name=specific_tag,
             active_tags_only=active_tags_only,
         )
+
+        data = live_tags(app.config["HTTPCLIENT"], app.config.get("KUBERNETES_CLUSTERS", []), app.config["SERVER_HOSTNAME"])
+        matches_tagname = lambda image, tagname: image.endswith(
+            "/".join([repo_ref.namespace_name, repo_ref.name]) + ":" + tagname
+        )
+        matches_manifest = lambda image, manifest: image.endswith(
+            "/".join([repo_ref.namespace_name, repo_ref.name]) + "@" + manifest
+        )
+        containers = filter(
+            lambda container: True
+            in [
+                matches_manifest(container.image, tag.manifest_digest)
+                or matches_tagname(container.image, tag.name)
+                for tag in history
+            ],
+            data,
+        )
+
         return {
             "tags": [_tag_dict(tag) for tag in history],
             "page": page,
             "has_additional": has_more,
+            "containers": [
+                {
+                    "cluster_id": container.cluster_id,
+                    "namespace": container.namespace,
+                    "name": container.name,
+                    "pod_name": container.pod_name,
+                    "status": container.state,
+                    "image": container.image,
+                }
+                for container in containers
+            ],
         }
 
 

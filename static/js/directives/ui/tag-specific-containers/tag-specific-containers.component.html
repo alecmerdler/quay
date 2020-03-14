@@ -1,0 +1,27 @@
+<div class="tag-specific-images-view-element" ng-show="$ctrl.loading">
+  <div class="cor-loader-inline"></div>
+</div>
+
+<div class="tag-specific-images-view-element" ng-show="$ctrl.containers.length && !$ctrl.loading">
+  The following containers are running with this tag:
+  <div class="image-listings">
+    <div class="image-listing" ng-repeat="container in $ctrl.containers | limitTo:5"
+         ng-class="getImageListingClasses(image)">
+      <span class="image-listing-circle"></span>
+      <span class="image-listing-line"></span>
+      <span class="context-tooltip image-listing-id" bs-tooltip="" data-title="{{ getFirstTextLine(image.comment) }}"
+            data-html="true">
+        <div style="display: flex; flex-direction: column; padding: 10px;">
+          <div style="display: flex;">
+            <div>On cluster <strong>{{ container.cluster_id }}</strong>&nbsp;</div>
+            <div>in pod <code>{{ container.namespace }}</code>/<code>{{ container.pod_name }}</code>&nbsp;</div>
+            <div>running container <code>{{ container.name }}</code></div>
+          </div>
+        </div>
+      </span>
+    </div>
+  </div>
+  <div class="more-changes" ng-show="$ctrl.containers.length > 5">
+    And {{ $ctrl.containers.length - 5 }} more...
+  </div>
+</div>
