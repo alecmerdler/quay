@@ -250,6 +250,7 @@ class RepositoryTag(RepositoryParamResource):
         registry_model.delete_tag(repo_ref, tag)
 
         username = get_authenticated_user().username
+        # TODO(alecmerdler): Use `events_model` to send `delete_tag` event...
         log_action(
             "delete_tag",
             namespace,

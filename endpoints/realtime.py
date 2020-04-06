@@ -1,6 +1,9 @@
 import logging
 import json
 
+from abc import ABCMeta, abstractmethod
+from six import add_metaclass
+
 from flask import request, Blueprint, abort, Response
 from flask_login import current_user
 
@@ -8,11 +11,54 @@ from app import userevents
 from auth.decorators import require_session_login
 from data.userevent import CannotReadUserEventsException
 
+from data.events_model import events_model
+from data.events_model.datatypes import Event, EventType
+
 
 logger = logging.getLogger(__name__)
 
 
 realtime = Blueprint("realtime", __name__)
+
+
+@realtime.route("/repository/<namespace>/<reponame>/tags")
+@require_session_login
+def repo_tags(namespace, reponame):
+    # TODO(alecmerdler): Figure out how to give `generator` to the Flask `Response` for SSE using `events_model`...
+    cancel = events_model.subscribe()
+    def generator():
+        yield None
+
+    r = Response(generator, mimetype="text/event-stream")
+    r.call_on_close(cancel)
+    return r
+  
+
+@realtime.route("/user/")
+@require_session_login
+def index():
+    debug_template = """
+    <html>
+      <head>
+      </head>
+      <body>
+        <h1>Server sent events</h1>
+        <div id="event"></div>
+        <script type="text/javascript">
+
+        var eventOutputContainer = document.getElementById("event");
+        var evtSrc = new EventSource("/realtime/user/subscribe?events=docker-cli");
+
+        evtSrc.onmessage = function(e) {
+            console.log(e.data);
+            eventOutputContainer.innerHTML = e.data;
+        };
+
+        </script>
+      </body>
+    </html>
+    """
+    return debug_template
 
 
 @realtime.route("/user/test")
