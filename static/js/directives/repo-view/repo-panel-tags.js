@@ -234,6 +234,10 @@ angular.module('quay').directive('repoPanelTags', function () {
       $scope.$watch('options.reverse', setTagState);
       $scope.$watch('options.filter', setTagState);
 
+      console.log("TODO(alecmerdler): Attempting to watch tag events")
+      const tagEvents = new EventSource(`/realtime/repository/${$scope.repository.namespace}/${$scope.repository.name}/tags`);
+      tagEvents.onmessage = (e) => console.log(e);
+
       $scope.$watch('options.page', function(page) {
         if (page != null && $scope.checkedTags) {
          $scope.checkedTags.setPage(page, $scope.tagsPerPage);
