@@ -20,32 +20,37 @@
   </div>
 
   <table class="co-table" ng-if="orderedRepositories.entries.length && !isLoading">
-   <thead>
-    <td class="hidden-xs"
-        ng-class="tablePredicateClass('full_name', options.predicate, options.reverse)">
-      <a ng-click="orderBy('full_name')">Repository Name</a>
-    </td>
-    <td class="hidden-xs"
-        ng-class="tablePredicateClass('last_modified_datetime', options.predicate, options.reverse)"
-        style="min-width: 120px;">
-      <a ng-click="orderBy('last_modified_datetime')">Last Modified</a>
-    </td>
-    <td class="hidden-xs"
-        ng-class="tablePredicateClass('popularity', options.predicate, options.reverse)"
-        style="min-width: 20px;">
-      <a ng-click="orderBy('popularity')">Activity</a>
-    </td>
-    <td class="hidden-xs"
-        ng-class="tablePredicateClass('is_starred', options.predicate, options.reverse)"
-        style="width: 70px"
-        ng-if="loggedIn && repoKind != 'application' && !inReadOnlyMode">
-      <a ng-click="orderBy('is_starred')">Star</a>
-    </td>
-   </thead>
+    <thead>
+      <td class="hidden-xs"
+          ng-class="tablePredicateClass('full_name', options.predicate, options.reverse)">
+        <a ng-click="orderBy('full_name')">Repository Name</a>
+      </td>
+      <td class="hidden-xs"
+          ng-class="tablePredicateClass('last_modified_datetime', options.predicate, options.reverse)"
+          style="min-width: 120px;">
+        <a ng-click="orderBy('last_modified_datetime')">Last Modified</a>
+      </td>
+      <td class="hidden-xs"
+          ng-class="tablePredicateClass('popularity', options.predicate, options.reverse)"
+          style="min-width: 20px;">
+        <a ng-click="orderBy('popularity')">Activity</a>
+      </td>
+      <td class="hidden-xs"
+          ng-class="tablePredicateClass('state', options.predicate, options.reverse)"
+          style="min-width: 20px;">
+        <a ng-click="orderBy('state')">State</a>
+      </td>
+      <td class="hidden-xs"
+          ng-class="tablePredicateClass('is_starred', options.predicate, options.reverse)"
+          style="width: 70px"
+          ng-if="loggedIn && repoKind != 'application' && !inReadOnlyMode">
+        <a ng-click="orderBy('is_starred')">Star</a>
+      </td>
+    </thead>
 
-   <tbody>
-     <tr ng-repeat="repository in orderedRepositories.entries | slice:(reposPerPage * options.page):(reposPerPage * (options.page + 1))">
-       <td class="repo-name-icon">
+    <tbody>
+      <tr ng-repeat="repository in orderedRepositories.entries | slice:(reposPerPage * options.page):(reposPerPage * (options.page + 1))">
+        <td class="repo-name-icon">
           <span class="avatar" size="24" data="::getAvatarData(repository.namespace)"></span>
           <a href="/repository/{{ ::repository.namespace }}/{{ ::repository.name }}" ng-if="repoKind != 'application'">
             <span class="namespace">{{ ::repository.namespace }}</span>
@@ -56,21 +61,25 @@
             <span class="name">{{ ::repository.name }}</span>
           </a>
         </td>
-       <td class="last-modified">
-         <span ng-if="::repository.last_modified">
-           {{ ::repository.last_modified * 1000 | amCalendar }}
-         </span>
-         <span class="empty" ng-if="::!repository.last_modified">(Empty Repository)</span>
-       </td>
-       <td class="popularity hidden-xs">
-         <span class="strength-indicator" value="::repository.popularity" maximum="::maxPopularity"
-               log-base="10"></span>
-       </td>
-       <td ng-show="loggedIn && repoKind != 'application' && !inReadOnlyMode">
-        <span class="repo-star" repository="::repository"
-              star-toggled="starToggled({'repository': repository})"></span>
-       </td>
-     </tr>
-   </tbody>
+        <td class="last-modified">
+          <span ng-if="::repository.last_modified">
+            {{ ::repository.last_modified * 1000 | amCalendar }}
+          </span>
+          <span class="empty" ng-if="::!repository.last_modified">(Empty Repository)</span>
+        </td>
+        <td class="popularity hidden-xs">
+          <span class="strength-indicator" value="::repository.popularity" maximum="::maxPopularity"
+                log-base="10"></span>
+        </td>
+        <td class="state hidden-xs">
+          <i class="fa fa-lock"></i>
+          <span class="">{{ ::repository.state || "Readonly" }}</span>
+        </td>
+        <td ng-show="loggedIn && repoKind != 'application' && !inReadOnlyMode">
+          <span class="repo-star" repository="::repository"
+                star-toggled="starToggled({'repository': repository})"></span>
+        </td>
+      </tr>
+    </tbody>
   </table>
 </div>
