@@ -1,5 +1,4 @@
 import logging
-from collections import namedtuple
 
 from data.events_model.interface import EventsInterface
 from data.events_model.events_model import EventsModel
