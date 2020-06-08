@@ -1,5 +1,6 @@
 import logging
 import json
+import redis
 
 from contextlib import contextmanager
 from datetime import datetime
@@ -175,6 +176,7 @@ class MemcachedModelCache(DataModelCache):
 
     def retrieve(self, cache_key, loader, should_cache=is_not_none):
         not_found = [None]
+<<<<<<< HEAD
         with memcache_client(self._get_client) as client:
             if client is not None:
                 logger.debug("Checking cache for key %s", cache_key.key)
@@ -219,3 +221,110 @@ class MemcachedModelCache(DataModelCache):
                 logger.debug("Not caching loaded result for key %s: %s", cache_key.key, result)
 
             return result
+=======
+        client = self._get_client()
+        if client is not None:
+            logger.debug("Checking cache for key %s", cache_key.key)
+            try:
+                result = client.get(cache_key.key, default=not_found)
+                if result != not_found:
+                    logger.debug("Found result in cache for key %s: %s", cache_key.key, result)
+                    return result
+            except:
+                logger.exception("Got exception when trying to retrieve key %s", cache_key.key)
+
+        logger.debug("Found no result in cache for key %s; calling loader", cache_key.key)
+        result = loader()
+        logger.debug("Got loaded result for key %s: %s", cache_key.key, result)
+        if client is not None and should_cache(result):
+            try:
+                logger.debug(
+                    "Caching loaded result for key %s with expiration %s: %s",
+                    cache_key.key,
+                    result,
+                    cache_key.expiration,
+                )
+                expires = (
+                    convert_to_timedelta(cache_key.expiration) if cache_key.expiration else None
+                )
+                client.set(
+                    cache_key.key, result, expire=int(expires.total_seconds()) if expires else None
+                )
+                logger.debug(
+                    "Cached loaded result for key %s with expiration %s: %s",
+                    cache_key.key,
+                    result,
+                    cache_key.expiration,
+                )
+            except:
+                logger.exception(
+                    "Got exception when trying to set key %s to %s", cache_key.key, result
+                )
+        else:
+            logger.debug("Not caching loaded result for key %s: %s", cache_key.key, result)
+
+        return result
+
+
+class RedisDataModelCache(DataModelCache):
+    """
+    Implementation of the data model cache backed by a Redis service.
+    """
+
+    def __init__(self, endpoint):
+        self.host = endpoint[0]
+        self.port = endpoint[1]
+        self.client = None
+
+    def _get_client(self):
+        if self.client is not None:
+            return self.client
+        
+        args = {"host": self.host, "port": self.port, "socket_connect_timeout": 1, "socket_timeout": 2, "single_connection_client": True}
+        self.client = redis.StrictRedis(**args)
+
+        return self.client
+
+    def retrieve(self, cache_key, loader, should_cache=is_not_none):
+        # TODO(alecmerdler): We might want to have different behavior based on `cache_key` (using "sets" for `/tags/list`, single value for others...)
+        not_found = None
+        client = self._get_client()
+        if client is not None:
+            logger.debug("Checking cache for key %s", cache_key.key)
+            try:
+                cached_result = client.get(cache_key.key)
+                if cached_result != not_found:
+                   return json.loads(cached_result) 
+            except redis.RedisError as re:
+                logger.exception("Got exception when trying to retrieve key %s", cache_key.key)
+
+        logger.debug("Found no result in cache for key %s; calling loader", cache_key.key)
+        result = loader()
+        logger.debug("Got loaded result for key %s: %s", cache_key.key, result)
+        if client is not None and should_cache(result):
+            try:
+                logger.debug(
+                    "Caching loaded result for key %s with expiration %s: %s",
+                    cache_key.key,
+                    result,
+                    cache_key.expiration,
+                )
+                expires = (
+                    convert_to_timedelta(cache_key.expiration) if cache_key.expiration else None
+                )
+                client.set(cache_key.key, json.dumps(result), expires)
+                logger.debug(
+                    "Cached loaded result for key %s with expiration %s: %s",
+                    cache_key.key,
+                    result,
+                    cache_key.expiration,
+                )
+            except:
+                logger.exception(
+                    "Got exception when trying to set key %s to %s", cache_key.key, result
+                )
+        else:
+            logger.debug("Not caching loaded result for key %s: %s", cache_key.key, result)
+
+        return result
+>>>>>>> ddb93bac... working on redis model cache spike

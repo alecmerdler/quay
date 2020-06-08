@@ -3,6 +3,7 @@ from data.cache.impl import (
     InMemoryDataModelCache,
     MemcachedModelCache,
     DisconnectWrapper,
+    RedisDataModelCache,
 )
 
 
@@ -29,5 +30,12 @@ def get_model_cache(config):
         return DisconnectWrapper(
             MemcachedModelCache(endpoint, timeout=timeout, connect_timeout=connect_timeout), config
         )
+
+    if engine == "redis":
+        endpoint = cache_config.get("endpoint", None)
+        if endpoint is None:
+            raise Exception("Missing `endpoint` for Redis model cache configuration")
+
+        return RedisDataModelCache(endpoint)
 
     raise Exception("Unknown model cache engine `%s`" % engine)
