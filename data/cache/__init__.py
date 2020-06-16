@@ -1,4 +1,9 @@
-from data.cache.impl import NoopDataModelCache, InMemoryDataModelCache, MemcachedModelCache
+from data.cache.impl import (
+    NoopDataModelCache,
+    InMemoryDataModelCache,
+    MemcachedModelCache,
+    RedisDataModelCache,
+)
 
 
 def get_model_cache(config):
@@ -22,5 +27,12 @@ def get_model_cache(config):
         timeout = cache_config.get("timeout")
         connect_timeout = cache_config.get("connect_timeout")
         return MemcachedModelCache(endpoint, timeout=timeout, connect_timeout=connect_timeout)
+
+    if engine == "redis":
+        endpoint = cache_config.get("endpoint", None)
+        if endpoint is None:
+            raise Exception("Missing `endpoint` for Redis model cache configuration")
+
+        return RedisDataModelCache(endpoint)
 
     raise Exception("Unknown model cache engine `%s`" % engine)
