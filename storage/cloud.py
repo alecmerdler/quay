@@ -567,6 +567,10 @@ class S3Storage(_CloudStorage):
         if port:
             connect_kwargs["port"] = int(port)
 
+        # FIXME(alecmerdler): Cannot use with MinIO because it doesn't support `SubdomainCallingFormat`
+        connect_kwargs["calling_format"] = boto.s3.connection.OrdinaryCallingFormat()
+        connect_kwargs["is_secure"] = False
+
         super(S3Storage, self).__init__(
             context,
             boto.s3.connection.S3Connection,
