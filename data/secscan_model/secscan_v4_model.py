@@ -101,8 +101,8 @@ class V4SecurityScanner(SecurityScannerInterface):
             endpoint=app.config.get("SECURITY_SCANNER_V4_ENDPOINT"),
             client=app.config.get("HTTPCLIENT"),
             blob_url_retriever=BlobURLRetriever(storage, instance_keys, app),
-            sign_jwt=app.config.get("SECURITY_SCANNER_V4_SIGN_JWT"),
-            jwt_psk=app.config.get("SECURITY_SCANNER_V4_PSK"),
+            sign_jwt=app.config.get("SECURITY_SCANNER_V4_SIGN_JWT", False),
+            jwt_psk=app.config.get("SECURITY_SCANNER_V4_PSK", None),
             instance_keys=instance_keys,
         )
 

@@ -16,4 +16,3 @@ pytest-sugar
 tox
 tox-docker
 tqdm
-PyJWT==1.7.1

@@ -3,8 +3,10 @@ import requests
 import json
 import os
 import jwt
+import base64
 
 from collections import namedtuple
+from datetime import datetime, timedelta
 from enum import Enum
 
 from abc import ABCMeta, abstractmethod
@@ -49,7 +51,7 @@ class SecurityScannerAPIInterface(object):
     @abstractmethod
     def state(self):
         """
-        The state endpoint returns a json structure indicating the indexer's internal configuration state. 
+        The state endpoint returns a json structure indicating the indexer's internal configuration state.
         A client may be interested in this as a signal that manifests may need to be re-indexed.
         """
         pass
@@ -57,7 +59,7 @@ class SecurityScannerAPIInterface(object):
     @abstractmethod
     def index(self, manifest, layers):
         """
-        By submitting a Manifest object to this endpoint Clair will fetch the layers, 
+        By submitting a Manifest object to this endpoint Clair will fetch the layers,
         scan each layer's contents, and provide an index of discovered packages, repository and distribution information.
         Returns a tuple of the `IndexReport` and the indexer state.
         """
@@ -73,7 +75,7 @@ class SecurityScannerAPIInterface(object):
     @abstractmethod
     def vulnerability_report(self, manifest_hash):
         """
-        Given a Manifest's content addressable hash a `VulnerabilityReport` will be created. 
+        Given a Manifest's content addressable hash a `VulnerabilityReport` will be created.
         The Manifest must have been Indexed first via the Index endpoint.
         """
         pass
@@ -95,12 +97,27 @@ actions = {
 
 
 class ClairSecurityScannerAPI(SecurityScannerAPIInterface):
-    def __init__(self, endpoint, client, blob_url_retriever, sign_jwt, jwt_psk, instance_keys):
+    """
+    if sign_jwt is true this class wil sign JWT requests to ClairV4
+
+    if sign_jwt is true and jwt_psk is not None, it is expected to be a base64 encoded pre-shared key and
+    will be used as the signing key.
+
+    if sign_jwt is true and jwt_psk is None, JWTs will be signed with the Quay instance's private key and
+    ClairV4 is expected to retrieve the key per the keyserver protocol.
+    """
+
+    def __init__(
+        self, endpoint, client, blob_url_retriever, sign_jwt=False, jwt_psk=None, instance_keys=None
+    ):
         self._client = client
         self._blob_url_retriever = blob_url_retriever
         self.sign_jwt = sign_jwt
-        self.jwt_psk = jwt_psk
         self.instance_keys = instance_keys
+        self.jwt_psk = None
+
+        if jwt_psk is not None:
+            self.jwt_psk = base64.b64decode(jwt_psk)
 
         self.secscan_api_endpoint = endpoint
 
@@ -208,12 +225,30 @@ class ClairSecurityScannerAPI(SecurityScannerAPIInterface):
         return resp
 
     def _sign_jwt(self):
-        key = self.jwt_psk if self.jwt_psk else self.instance_keys.local_private_key()
-        key_id = "" if self.jwt_psk else self.instance_keys.local_key_id()
-        issuer = self.instance_keys.service_name()
-        algo = "HS256" if self.jwt_psk else "RS256"
-        payload = {"issuer": issuer, "kid": key_id}
-        token = jwt.encode(payload, key, algorithm=algo)
+        """
+        Sign and return a jwt.
+
+        If self.jwt_psk is provided a pre-shared key will be used as the signing key.
+        If self.jwt_psk is not provided the key server protocol is used. see:
+        https://github.com/quay/jwtproxy/blob/master/jwt/keyserver/keyregistry/README.md
+        """
+        # early return on psk
+        if self.jwt_psk:
+            payload = {
+                "iss": self.instance_keys.service_name,
+                "exp": datetime.utcnow() + timedelta(minutes=5),
+            }
+            token = jwt.encode(payload, self.jwt_psk, algorithm="HS256").decode("utf-8")
+            return token
+
+        payload = {
+            "iss": self.instance_keys.service_name,
+            "exp": datetime.utcnow() + timedelta(minutes=5),
+            "kid": self.instance_keys.local_key_id,
+        }
+        token = jwt.encode(payload, self.instance_keys.local_private_key, algorithm="RS256").decode(
+            "utf-8"
+        )
         return token
 
 
