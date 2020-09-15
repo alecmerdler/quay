@@ -702,6 +702,16 @@ CONFIG_SCHEMA = {
             "description": "The number of seconds between indexing intervals in the security scanner. Defaults to 30.",
             "x-example": 30,
         },
+        "SECURITY_SCANNER_V4_SIGN_JWT": {
+            "type": "boolean",
+            "description": "Whether ClairV4 client will sign jwts.",
+            "x-example": False,
+        },
+        "SECURITY_SCANNER_V4_PSK": {
+            "type": "string",
+            "description": "If 'SECURITY_SCANNER_V4_SIGN_JWT' true, whether to use psk or Quay key server. If PSK is desired define the key in this config variable.",
+            "x-example": "PSK",
+        },
         # Repository mirroring
         "REPO_MIRROR_INTERVAL": {
             "type": "number",
