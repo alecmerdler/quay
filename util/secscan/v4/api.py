@@ -2,6 +2,7 @@ import logging
 import requests
 import json
 import os
+import jwt
 
 from collections import namedtuple
 from enum import Enum
@@ -94,9 +95,12 @@ actions = {
 
 
 class ClairSecurityScannerAPI(SecurityScannerAPIInterface):
-    def __init__(self, endpoint, client, blob_url_retriever):
+    def __init__(self, endpoint, client, blob_url_retriever, sign_jwt, jwt_psk, instance_keys):
         self._client = client
         self._blob_url_retriever = blob_url_retriever
+        self.sign_jwt = sign_jwt
+        self.jwt_psk = jwt_psk
+        self.instance_keys = instance_keys
 
         self.secscan_api_endpoint = endpoint
 
@@ -174,9 +178,15 @@ class ClairSecurityScannerAPI(SecurityScannerAPIInterface):
         (method, path, body) = action.payload
         url = urljoin(self.secscan_api_endpoint, path)
 
+        headers = {}
+        if self.sign_jwt:
+            token = self._sign_jwt()
+            headers["authorization"] = "{} {}".format("Bearer", token)
+            logger.debug("generated jwt for security scanner request")
+
         logger.debug("%sing security URL %s", method.upper(), url)
         try:
-            resp = self._client.request(method, url, json=body)
+            resp = self._client.request(method, url, json=body, headers=headers)
         except requests.exceptions.ConnectionError as ce:
             logger.exception("Connection error when trying to connect to security scanner endpoint")
             msg = "Connection error when trying to connect to security scanner endpoint: %s" % str(
@@ -196,6 +206,15 @@ class ClairSecurityScannerAPI(SecurityScannerAPIInterface):
             raise IncompatibleAPIResponse("Received incompatible response from security scanner")
 
         return resp
+
+    def _sign_jwt(self):
+        key = self.jwt_psk if self.jwt_psk else self.instance_keys.local_private_key()
+        key_id = "" if self.jwt_psk else self.instance_keys.local_key_id()
+        issuer = self.instance_keys.service_name()
+        algo = "HS256" if self.jwt_psk else "RS256"
+        payload = {"issuer": issuer, "kid": key_id}
+        token = jwt.encode(payload, key, algorithm=algo)
+        return token
 
 
 def is_valid_response(action, resp={}):

@@ -88,3 +88,4 @@ xhtml2pdf
 recaptcha2
 mockredispy
 yapf
+PyJWT==1.7.1
