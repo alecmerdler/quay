@@ -707,7 +707,7 @@ CONFIG_SCHEMA = {
             "description": "Whether ClairV4 client will sign jwts.",
             "x-example": False,
         },
-        "SECURITY_SCANNER_V4_PSK": {
+        "SECURITY_SCANNER_V4_JWT_PSK": {
             "type": "string",
             "description": "If 'SECURITY_SCANNER_V4_SIGN_JWT' true, whether to use psk or Quay key server. If PSK is desired define the key in this config variable.",
             "x-example": "PSK",

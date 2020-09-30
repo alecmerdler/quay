@@ -97,28 +97,13 @@ actions = {
 
 
 class ClairSecurityScannerAPI(SecurityScannerAPIInterface):
-    """
-    if sign_jwt is true this class wil sign JWT requests to ClairV4
-
-    if sign_jwt is true and jwt_psk is not None, it is expected to be a base64 encoded pre-shared key and
-    will be used as the signing key.
-
-    if sign_jwt is true and jwt_psk is None, JWTs will be signed with the Quay instance's private key and
-    ClairV4 is expected to retrieve the key per the keyserver protocol.
-    """
-
     def __init__(
-        self, endpoint, client, blob_url_retriever, sign_jwt=False, jwt_psk=None, instance_keys=None
+        self, endpoint, client, blob_url_retriever, jwt_psk=None, instance_keys=None
     ):
         self._client = client
         self._blob_url_retriever = blob_url_retriever
-        self.sign_jwt = sign_jwt
         self.instance_keys = instance_keys
-        self.jwt_psk = None
-
-        if jwt_psk is not None:
-            self.jwt_psk = base64.b64decode(jwt_psk)
-
+        self.jwt_psk = None if not jwt_psk else base64.b64decode(jwt_psk)
         self.secscan_api_endpoint = endpoint
 
     def state(self):
@@ -196,9 +181,8 @@ class ClairSecurityScannerAPI(SecurityScannerAPIInterface):
         url = urljoin(self.secscan_api_endpoint, path)
 
         headers = {}
-        if self.sign_jwt:
-            token = self._sign_jwt()
-            headers["authorization"] = "{} {}".format("Bearer", token)
+        if self.jwt_psk:
+            headers["authorization"] = "{} {}".format("Bearer", self._sign_jwt())
             logger.debug("generated jwt for security scanner request")
 
         logger.debug("%sing security URL %s", method.upper(), url)
@@ -225,31 +209,10 @@ class ClairSecurityScannerAPI(SecurityScannerAPIInterface):
         return resp
 
     def _sign_jwt(self):
-        """
-        Sign and return a jwt.
-
-        If self.jwt_psk is provided a pre-shared key will be used as the signing key.
-        If self.jwt_psk is not provided the key server protocol is used. see:
-        https://github.com/quay/jwtproxy/blob/master/jwt/keyserver/keyregistry/README.md
-        """
-        # early return on psk
-        if self.jwt_psk:
-            payload = {
-                "iss": self.instance_keys.service_name,
-                "exp": datetime.utcnow() + timedelta(minutes=5),
-            }
-            token = jwt.encode(payload, self.jwt_psk, algorithm="HS256").decode("utf-8")
-            return token
-
-        payload = {
-            "iss": self.instance_keys.service_name,
+        return jwt.encode({
+            "iss": "quay",
             "exp": datetime.utcnow() + timedelta(minutes=5),
-            "kid": self.instance_keys.local_key_id,
-        }
-        token = jwt.encode(payload, self.instance_keys.local_private_key, algorithm="RS256").decode(
-            "utf-8"
-        )
-        return token
+        }, self.jwt_psk, algorithm="HS256").decode("utf-8")
 
 
 def is_valid_response(action, resp={}):

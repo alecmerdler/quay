@@ -487,13 +487,9 @@ class DefaultConfig(ImmutableConfig):
     # The issuer name for the security scanner.
     SECURITY_SCANNER_ISSUER_NAME = "security_scanner"
 
-    # Whether ClairV4 client will sign jwts. Boolean value
-    SECURITY_SCANNER_V4_SIGN_JWT = False
-
-    # If 'SECURITY_SCANNER_V4_SIGN_JWT' true, whether to use psk or
-    # Quay key server. If PSK is desired define the key in this config variable.
-    # String value
-    SECURITY_SCANNER_V4_PSK = None
+    # The pre-shared key that will be used to sign JSON web tokens (JWT's) for 
+    # authorization between Quay and the security scanner service.
+    SECURITY_SCANNER_V4_JWT_PSK = None
 
     # Repository mirror
     FEATURE_REPO_MIRROR = False
