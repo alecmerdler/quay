@@ -1,6 +1,6 @@
 
 ###################
-FROM centos:8 as config-editor
+FROM quay.io/alecmerdler/centos:8 as config-editor
 
 WORKDIR /config-editor
 
@@ -9,7 +9,8 @@ RUN INSTALL_PKGS="\
     " && \
     yum -y --setopt=tsflags=nodocs --setopt=skip_missing_names_on_install=False install $INSTALL_PKGS
 
-RUN git clone https://github.com/quay/config-tool.git /config-editor && \
+# FIXME(alecmerdler): Debugging
+RUN git clone --branch PROJQUAY-1306-dev https://github.com/alecmerdler/config-tool.git /config-editor && \
     cp -R pkg/lib/editor/* .
 RUN yum install -y nodejs && \
     npm install --ignore-engines && \
@@ -17,10 +18,11 @@ RUN yum install -y nodejs && \
 
 
 ###################
-FROM golang:1.15 as config-tool
+FROM quay.io/alecmerdler/golang:1.15 as config-tool
 
 WORKDIR /go/src/config-tool
-RUN git clone https://github.com/quay/config-tool.git /go/src/config-tool
+# FIXME(alecmerdler): Debugging
+RUN git clone --branch PROJQUAY-1306-dev https://github.com/alecmerdler/config-tool.git /go/src/config-tool
 RUN rm -rf /go/src/config-tool/pkg/lib/editor/static/build
 COPY --from=config-editor /config-editor/static/build  /go/src/config-tool/pkg/lib/editor/static/build
 
@@ -28,7 +30,7 @@ RUN go install ./cmd/config-tool
 
 
 ###################
-FROM centos:8
+FROM quay.io/alecmerdler/centos:8
 LABEL maintainer "thomasmckay@redhat.com"
 
 ENV OS=linux \
